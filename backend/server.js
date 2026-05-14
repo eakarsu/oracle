@@ -55,11 +55,14 @@ app.use('/api/audit-trail', require('./routes/audit-trail'));
 app.use('/api/user-management', require('./routes/user-management'));
 app.use('/api/knowledge-base', require('./routes/knowledge-base'));
 app.use('/api/shipping', require('./routes/shipping'));
+app.use('/api/ai-extras', require('./routes/ai-extras'));
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+app.use('/api', require('./routes/gap-features')); // === Batch 11 Gaps & Frontend Mounts ===
 
 app.listen(PORT, () => {
   console.log(`\n  🚀 Oracle ERP Backend running on http://localhost:${PORT}\n`);

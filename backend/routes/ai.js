@@ -417,6 +417,180 @@ Be specific, reference actual values, and provide actionable insights.`;
   }
 });
 
+// Budget simulator: simulate impact of budget allocation changes
+router.post('/budget-simulator', async (req, res) => {
+  try {
+    const { scenario, budgetData } = req.body;
+
+    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === 'your-openrouter-api-key-here') {
+      return res.status(400).json({ error: 'OpenRouter API key not configured' });
+    }
+
+    const systemPrompt = 'You are a corporate FP&A analyst for Oracle ERP. Given a proposed budget scenario and current budget data, simulate the financial impact across departments, projected variance, cash-flow implications, and risk highlights. Return a structured analysis with sections: Summary, Impact By Department, Variance Risks, Recommendations.';
+
+    const userMessage = `Scenario:\n${scenario || '(none provided)'}\n\nCurrent Budget Data:\n${JSON.stringify(budgetData || {}, null, 2)}\n\nSimulate the impact:`;
+
+    const result = await callOpenRouter(
+      [{ role: 'user', content: userMessage }],
+      systemPrompt,
+      { temperature: 0.4, max_tokens: 2000 }
+    );
+
+    if (result.error) {
+      return res.status(400).json({ error: result.error.message || 'OpenRouter API error' });
+    }
+
+    res.json({
+      response: result.choices?.[0]?.message?.content || 'No simulation generated',
+      model: result.model || OPENROUTER_MODEL,
+      usage: result.usage || {},
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Budget simulator error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Tax optimizer: identify potential tax optimization opportunities
+router.post('/tax-optimizer', async (req, res) => {
+  try {
+    const { taxContext, transactions } = req.body;
+
+    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === 'your-openrouter-api-key-here') {
+      return res.status(400).json({ error: 'OpenRouter API key not configured' });
+    }
+
+    const systemPrompt = 'You are a senior tax strategist for Oracle ERP. Analyze the given tax context and transactions. Identify potential optimization opportunities, applicable credits/deductions, jurisdictional considerations, and compliance flags. Return structured output: Opportunities, Compliance Flags, Estimated Impact, Next Steps. Always recommend consulting a licensed tax professional.';
+
+    const userMessage = `Tax Context:\n${taxContext || '(none provided)'}\n\nTransactions Sample:\n${JSON.stringify((transactions || []).slice(0, 25), null, 2)}\n\nIdentify tax optimization opportunities:`;
+
+    const result = await callOpenRouter(
+      [{ role: 'user', content: userMessage }],
+      systemPrompt,
+      { temperature: 0.4, max_tokens: 2000 }
+    );
+
+    if (result.error) {
+      return res.status(400).json({ error: result.error.message || 'OpenRouter API error' });
+    }
+
+    res.json({
+      response: result.choices?.[0]?.message?.content || 'No optimization generated',
+      model: result.model || OPENROUTER_MODEL,
+      usage: result.usage || {},
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Tax optimizer error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Contract analyzer: review procurement/vendor contracts for risk and key terms
+router.post('/contract-analyzer', async (req, res) => {
+  try {
+    const { contractText, contractMeta } = req.body;
+
+    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === 'your-openrouter-api-key-here') {
+      return res.status(400).json({ error: 'OpenRouter API key not configured' });
+    }
+
+    if (!contractText || typeof contractText !== 'string') {
+      return res.status(400).json({ error: 'contractText (string) is required' });
+    }
+
+    const systemPrompt = 'You are a procurement contract analyst for Oracle ERP. Review the contract text and extract key terms (parties, term, value, payment terms, SLAs), identify risks (liability, indemnity, termination, auto-renewal, price escalators), and flag missing/ambiguous clauses. Return structured output: Key Terms, Risks, Missing Clauses, Recommended Actions. This is informational only and not legal advice.';
+
+    const userMessage = `Contract Metadata:\n${JSON.stringify(contractMeta || {}, null, 2)}\n\nContract Text:\n${contractText.slice(0, 12000)}\n\nAnalyze the contract:`;
+
+    const result = await callOpenRouter(
+      [{ role: 'user', content: userMessage }],
+      systemPrompt,
+      { temperature: 0.3, max_tokens: 2200 }
+    );
+
+    if (result.error) {
+      return res.status(400).json({ error: result.error.message || 'OpenRouter API error' });
+    }
+
+    res.json({
+      response: result.choices?.[0]?.message?.content || 'No analysis generated',
+      model: result.model || OPENROUTER_MODEL,
+      usage: result.usage || {},
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Contract analyzer error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== Apply pass 4: Skills Matcher ====================
+// POST /api/ai/skills-matcher
+// Match employees / candidates against role skill requirements.
+router.post('/skills-matcher', async (req, res) => {
+  try {
+    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === 'your-openrouter-api-key-here') {
+      return res.status(503).json({ error: 'AI service not configured (OPENROUTER_API_KEY missing)' });
+    }
+
+    const { roleTitle, requiredSkills, niceToHaveSkills, candidates } = req.body;
+    if (!roleTitle || typeof roleTitle !== 'string') {
+      return res.status(400).json({ error: 'roleTitle (string) is required' });
+    }
+    if (!Array.isArray(requiredSkills) || requiredSkills.length === 0) {
+      return res.status(400).json({ error: 'requiredSkills (non-empty array) is required' });
+    }
+
+    let candidatePool = Array.isArray(candidates) ? candidates : [];
+    if (candidatePool.length === 0) {
+      try {
+        const r = await pool.query(
+          'SELECT id, name, position, department, skills FROM employees ORDER BY id LIMIT 50'
+        );
+        candidatePool = r.rows;
+      } catch (e) {
+        // employees table may not exist or have different shape — fall through with empty pool
+        candidatePool = [];
+      }
+    }
+
+    const systemPrompt = 'You are an Oracle ERP workforce planning assistant. Match the role requirements against the candidate pool. Return structured output with: Top Matches (ranked, with match score 0-100, matched skills, gaps, rationale), Skill Gap Analysis across the pool, Training/Upskilling Recommendations, and a one-paragraph executive summary. Be concise and actionable.';
+
+    const userMessage = `Role: ${roleTitle}
+Required Skills: ${JSON.stringify(requiredSkills)}
+Nice-to-have Skills: ${JSON.stringify(niceToHaveSkills || [])}
+
+Candidate Pool (${candidatePool.length}):
+${JSON.stringify(candidatePool).slice(0, 6000)}
+
+Match candidates to the role and provide the structured analysis.`;
+
+    const result = await callOpenRouter(
+      [{ role: 'user', content: userMessage }],
+      systemPrompt,
+      { temperature: 0.3, max_tokens: 2200 }
+    );
+
+    if (result.error) {
+      return res.status(400).json({ error: result.error.message || 'OpenRouter API error' });
+    }
+
+    res.json({
+      response: result.choices?.[0]?.message?.content || 'No analysis generated',
+      model: result.model || OPENROUTER_MODEL,
+      usage: result.usage || {},
+      candidate_count: candidatePool.length,
+      role_title: roleTitle,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Skills matcher error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get chat history
 router.get('/history', async (req, res) => {
   try {
