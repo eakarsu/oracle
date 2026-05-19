@@ -71,4 +71,12 @@ export const api = {
     request('/ai/record-summary', { method: 'POST', body: JSON.stringify({ module, moduleTitle, record }) }),
   aiRecordInsights: (module, moduleTitle, record, allRecords) =>
     request('/ai/record-insights', { method: 'POST', body: JSON.stringify({ module, moduleTitle, record, allRecords }) }),
+  aiBudgetSimulator: (payload) =>
+    request('/ai/budget-simulator', { method: 'POST', body: JSON.stringify(payload || {}) }),
+  aiTaxOptimizer: (payload) =>
+    request('/ai/tax-optimizer', { method: 'POST', body: JSON.stringify(payload || {}) }),
+  aiContractAnalyzer: (payload) =>
+    request('/ai/contract-analyzer', { method: 'POST', body: JSON.stringify(payload || {}) }),
+  aiSkillsMatcher: (payload) =>
+    request('/ai/skills-matcher', { method: 'POST', body: JSON.stringify(payload || {}) }),
 };

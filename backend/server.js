@@ -55,10 +55,21 @@ app.use('/api/audit-trail', require('./routes/audit-trail'));
 app.use('/api/user-management', require('./routes/user-management'));
 app.use('/api/knowledge-base', require('./routes/knowledge-base'));
 app.use('/api/shipping', require('./routes/shipping'));
+app.use('/api/ai-extras', require('./routes/ai-extras'));
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Custom Views (mounted before catch-all gap-features router / 404)
+app.use('/api/custom-views', require('./routes/customViews'));
+
+app.use('/api', require('./routes/gap-features')); // === Batch 11 Gaps & Frontend Mounts ===
+
+// 404 for unknown /api routes (must be after all mounts)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not Found', path: req.originalUrl });
 });
 
 app.listen(PORT, () => {

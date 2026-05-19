@@ -1,10 +1,25 @@
+// === Batch 11 Gaps & Frontend Mounts ===
+import GapBudgetSimulatorPage from './pages/gap/GapBudgetSimulatorPage'
+import GapTaxOptimizerPage from './pages/gap/GapTaxOptimizerPage'
+import GapContractClauseAnalyzerPage from './pages/gap/GapContractClauseAnalyzerPage'
+import GapFraudAnomalyDetectorPage from './pages/gap/GapFraudAnomalyDetectorPage'
+import GapSkillsMatcherPage from './pages/gap/GapSkillsMatcherPage'
+import GapInvoiceOcrPage from './pages/gap/GapInvoiceOcrPage'
+import GapMultiEntityConsolidationPage from './pages/gap/GapMultiEntityConsolidationPage'
+import GapApprovalEnginePage from './pages/gap/GapApprovalEnginePage'
+import GapExternalAccountingSyncPage from './pages/gap/GapExternalAccountingSyncPage'
+import GapMobileSelfServicePage from './pages/gap/GapMobileSelfServicePage'
+import GapFieldOpsAppPage from './pages/gap/GapFieldOpsAppPage'
+import GapApiGatewayPage from './pages/gap/GapApiGatewayPage'
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ModulePage from './pages/ModulePage';
 import AIAssistant from './pages/AIAssistant';
+import AIAdvanced from './pages/AIAdvanced';
 import Analytics from './pages/Analytics';
+import CustomViewsPage from './pages/CustomViewsPage';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: '📊' },
@@ -61,6 +76,9 @@ const NAV_ITEMS = [
   { section: 'ADMIN & AI' },
   { path: '/user-management', label: 'User Mgmt', icon: '🔐' },
   { path: '/ai', label: 'AI Assistant', icon: '🤖' },
+  { path: '/ai-advanced', label: 'AI Advanced', icon: '✨' },
+  { section: 'CUSTOM VIEWS' },
+  { path: '/custom-views', label: 'Oracle Views', icon: '🛰️' },
 ];
 
 function Sidebar({ user, onLogout }) {
@@ -163,6 +181,8 @@ function ProtectedRoutes({ user, onLogout }) {
         <Route path="/user-management" element={<ModulePage module="user-management" title="User Management" user={user} />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/ai" element={<AIAssistant />} />
+        <Route path="/ai-advanced" element={<AIAdvanced />} />
+        <Route path="/custom-views" element={<CustomViewsPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </AppLayout>
@@ -204,7 +224,20 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login onLogin={handleLogin} />} />
           <Route path="*" element={<Navigate to="/login" />} />
-        </Routes>
+              {/* === Batch 11 Gaps & Frontend Mounts === */}
+        <Route path="/gap/budget-simulator" element={<GapBudgetSimulatorPage />} />
+        <Route path="/gap/tax-optimizer" element={<GapTaxOptimizerPage />} />
+        <Route path="/gap/contract-clause-analyzer" element={<GapContractClauseAnalyzerPage />} />
+        <Route path="/gap/fraud-anomaly-detector" element={<GapFraudAnomalyDetectorPage />} />
+        <Route path="/gap/skills-matcher" element={<GapSkillsMatcherPage />} />
+        <Route path="/gap/invoice-ocr" element={<GapInvoiceOcrPage />} />
+        <Route path="/gap/multi-entity-consolidation" element={<GapMultiEntityConsolidationPage />} />
+        <Route path="/gap/approval-engine" element={<GapApprovalEnginePage />} />
+        <Route path="/gap/external-accounting-sync" element={<GapExternalAccountingSyncPage />} />
+        <Route path="/gap/mobile-self-service" element={<GapMobileSelfServicePage />} />
+        <Route path="/gap/field-ops-app" element={<GapFieldOpsAppPage />} />
+        <Route path="/gap/api-gateway" element={<GapApiGatewayPage />} />
+      </Routes>
       )}
     </BrowserRouter>
   );
