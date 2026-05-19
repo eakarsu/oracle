@@ -19,6 +19,7 @@ import ModulePage from './pages/ModulePage';
 import AIAssistant from './pages/AIAssistant';
 import AIAdvanced from './pages/AIAdvanced';
 import Analytics from './pages/Analytics';
+import CustomViewsPage from './pages/CustomViewsPage';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: '📊' },
@@ -76,6 +77,8 @@ const NAV_ITEMS = [
   { path: '/user-management', label: 'User Mgmt', icon: '🔐' },
   { path: '/ai', label: 'AI Assistant', icon: '🤖' },
   { path: '/ai-advanced', label: 'AI Advanced', icon: '✨' },
+  { section: 'CUSTOM VIEWS' },
+  { path: '/custom-views', label: 'Oracle Views', icon: '🛰️' },
 ];
 
 function Sidebar({ user, onLogout }) {
@@ -179,6 +182,7 @@ function ProtectedRoutes({ user, onLogout }) {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/ai" element={<AIAssistant />} />
         <Route path="/ai-advanced" element={<AIAdvanced />} />
+        <Route path="/custom-views" element={<CustomViewsPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </AppLayout>

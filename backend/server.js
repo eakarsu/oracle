@@ -62,7 +62,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Custom Views (mounted before catch-all gap-features router / 404)
+app.use('/api/custom-views', require('./routes/customViews'));
+
 app.use('/api', require('./routes/gap-features')); // === Batch 11 Gaps & Frontend Mounts ===
+
+// 404 for unknown /api routes (must be after all mounts)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not Found', path: req.originalUrl });
+});
 
 app.listen(PORT, () => {
   console.log(`\n  🚀 Oracle ERP Backend running on http://localhost:${PORT}\n`);
