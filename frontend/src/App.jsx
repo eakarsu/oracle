@@ -20,6 +20,10 @@ import AIAssistant from './pages/AIAssistant';
 import AIAdvanced from './pages/AIAdvanced';
 import Analytics from './pages/Analytics';
 import CustomViewsPage from './pages/CustomViewsPage';
+import OrderToCashControl from './pages/OrderToCashControl';
+
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: '📊' },
@@ -28,6 +32,7 @@ const NAV_ITEMS = [
   { path: '/general-ledger', label: 'General Ledger', icon: '📒' },
   { path: '/accounts-payable', label: 'Accounts Payable', icon: '📤' },
   { path: '/accounts-receivable', label: 'Accounts Receivable', icon: '📥' },
+  { path: '/order-to-cash-control', label: 'O2C Control Tower', icon: '🧮' },
   { path: '/budgets', label: 'Budgets', icon: '💵' },
   { path: '/tax', label: 'Tax Management', icon: '🏛️' },
   { path: '/expenses', label: 'Expenses', icon: '🧾' },
@@ -136,11 +141,15 @@ function ProtectedRoutes({ user, onLogout }) {
   return (
     <AppLayout user={user} onLogout={onLogout}>
       <Routes>
+        <Route path="/codex/custom-viz" element={<ProtectedRoute><CodexCustomVizFeature /></ProtectedRoute>} />
+        <Route path="/codex/operations" element={<ProtectedRoute><CodexOperationsFeature /></ProtectedRoute>} />
+
         <Route path="/" element={<Dashboard />} />
         <Route path="/finance" element={<ModulePage module="finance" title="Finance & Accounting" user={user} />} />
         <Route path="/general-ledger" element={<ModulePage module="general-ledger" title="General Ledger" user={user} />} />
         <Route path="/accounts-payable" element={<ModulePage module="accounts-payable" title="Accounts Payable" user={user} />} />
         <Route path="/accounts-receivable" element={<ModulePage module="accounts-receivable" title="Accounts Receivable" user={user} />} />
+        <Route path="/order-to-cash-control" element={<OrderToCashControl />} />
         <Route path="/budgets" element={<ModulePage module="budgets" title="Budget Management" user={user} />} />
         <Route path="/tax" element={<ModulePage module="tax" title="Tax Management" user={user} />} />
         <Route path="/expenses" element={<ModulePage module="expenses" title="Expense Reports" user={user} />} />

@@ -56,6 +56,7 @@ app.use('/api/user-management', require('./routes/user-management'));
 app.use('/api/knowledge-base', require('./routes/knowledge-base'));
 app.use('/api/shipping', require('./routes/shipping'));
 app.use('/api/ai-extras', require('./routes/ai-extras'));
+app.use('/api/order-to-cash-control', require('./routes/order-to-cash-control'));
 
 // Health check
 app.get('/api/health', (req, res) => {

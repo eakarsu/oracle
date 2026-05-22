@@ -79,4 +79,6 @@ export const api = {
     request('/ai/contract-analyzer', { method: 'POST', body: JSON.stringify(payload || {}) }),
   aiSkillsMatcher: (payload) =>
     request('/ai/skills-matcher', { method: 'POST', body: JSON.stringify(payload || {}) }),
+  orderToCashControl: (payload) =>
+    request('/order-to-cash-control/score', { method: 'POST', body: JSON.stringify(payload || {}) }),
 };
