@@ -1,84 +1,47 @@
 const API_BASE = '/api';
 
-function getHeaders() {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
-
 async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const headers = { ...(options.headers || {}) };
+  if (options.body) headers['Content-Type'] = 'application/json';
+  const response = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: getHeaders(),
+    headers,
+    credentials: 'same-origin',
   });
-
-  if (res.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-    throw new Error('Unauthorized');
+  const data = response.status === 204 ? null : await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data?.error || `Request failed (${response.status})`);
+    error.status = response.status;
+    error.requestId = data?.request_id || response.headers.get('x-request-id');
+    if (response.status === 401 && path !== '/auth/login' && path !== '/auth/me') {
+      window.dispatchEvent(new Event('oracle-auth-expired'));
+    }
+    throw error;
   }
-
-  if (res.status === 403) {
-    const data = await res.json();
-    throw new Error(data.error || 'Insufficient permissions');
-  }
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
 
+function mutation(path, body, idempotencyKey = crypto.randomUUID()) {
+  return request(path, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
 export const api = {
-  // Auth
-  login: (email, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  login: (email, password) => request('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  }),
+  logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
-
-  // Generic CRUD
-  getAll: (resource) => request(`/${resource}`),
-  getOne: (resource, id) => request(`/${resource}/${id}`),
-  create: (resource, data) => request(`/${resource}`, { method: 'POST', body: JSON.stringify(data) }),
-  update: (resource, id, data) => request(`/${resource}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: (resource, id) => request(`/${resource}/${id}`, { method: 'DELETE' }),
-
-  // Approval workflow
-  approve: (resource, id) => request(`/${resource}/${id}/approve`, { method: 'PUT' }),
-  reject: (resource, id) => request(`/${resource}/${id}/reject`, { method: 'PUT' }),
-
-  // Analytics
-  dashboard: () => request('/analytics/dashboard'),
-  analyticsFinance: () => request('/analytics/finance'),
-  analyticsHR: () => request('/analytics/hr'),
-  analyticsSales: () => request('/analytics/sales'),
-  analyticsCRM: () => request('/analytics/crm'),
-
-  // AI
-  aiChat: (message, context) => request('/ai/chat', { method: 'POST', body: JSON.stringify({ message, context }) }),
-  aiAnalyzeFinance: () => request('/ai/analyze-finance', { method: 'POST' }),
-  aiAnalyzeHR: () => request('/ai/analyze-hr', { method: 'POST' }),
-  aiForecastSales: () => request('/ai/forecast-sales', { method: 'POST' }),
-  aiOptimizeInventory: () => request('/ai/optimize-inventory', { method: 'POST' }),
-  aiAssessRisk: () => request('/ai/assess-risk', { method: 'POST' }),
-  aiHistory: () => request('/ai/history'),
-  aiFillFields: (module, moduleTitle, fields, description, existingData) =>
-    request('/ai/fill-fields', { method: 'POST', body: JSON.stringify({ module, moduleTitle, fields, description, existingData }) }),
-  aiSummarizeRecords: (module, moduleTitle, records, recordCount, customPrompt) =>
-    request('/ai/summarize-records', { method: 'POST', body: JSON.stringify({ module, moduleTitle, records, recordCount, customPrompt }) }),
-  aiRecordSummary: (module, moduleTitle, record) =>
-    request('/ai/record-summary', { method: 'POST', body: JSON.stringify({ module, moduleTitle, record }) }),
-  aiRecordInsights: (module, moduleTitle, record, allRecords) =>
-    request('/ai/record-insights', { method: 'POST', body: JSON.stringify({ module, moduleTitle, record, allRecords }) }),
-  aiBudgetSimulator: (payload) =>
-    request('/ai/budget-simulator', { method: 'POST', body: JSON.stringify(payload || {}) }),
-  aiTaxOptimizer: (payload) =>
-    request('/ai/tax-optimizer', { method: 'POST', body: JSON.stringify(payload || {}) }),
-  aiContractAnalyzer: (payload) =>
-    request('/ai/contract-analyzer', { method: 'POST', body: JSON.stringify(payload || {}) }),
-  aiSkillsMatcher: (payload) =>
-    request('/ai/skills-matcher', { method: 'POST', body: JSON.stringify(payload || {}) }),
-  orderToCashControl: (payload) =>
-    request('/order-to-cash-control/score', { method: 'POST', body: JSON.stringify(payload || {}) }),
+  procurement: {
+    list: () => request('/procurement'),
+    events: (id) => request(`/procurement/${id}/events`),
+    create: (order, key) => mutation('/procurement', order, key),
+    submit: (id, key) => mutation(`/procurement/${id}/submit`, undefined, key),
+    decide: (id, decision, note, key) => mutation(`/procurement/${id}/decision`, { decision, note }, key),
+    cancel: (id, note, key) => mutation(`/procurement/${id}/cancel`, { note }, key),
+  },
 };

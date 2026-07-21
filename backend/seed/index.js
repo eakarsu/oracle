@@ -3,7 +3,22 @@ const bcrypt = require('bcryptjs');
 const { createExpandedTables, seedExpandedData } = require('./seed-expanded');
 const { createExpandedTables2, seedExpandedData2 } = require('./seed-expanded-2');
 
+function destructiveResetSettings() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Demo reset is permanently disabled in production');
+  }
+  if (process.env.CONFIRM_DESTRUCTIVE_RESET !== 'DELETE_ALL_ORACLE_DEMO_DATA') {
+    throw new Error('Set CONFIRM_DESTRUCTIVE_RESET=DELETE_ALL_ORACLE_DEMO_DATA to acknowledge the destructive reset');
+  }
+  const password = process.env.DEMO_USER_PASSWORD || '';
+  if (password.length < 14 || password.length > 1024 || password === 'password123') {
+    throw new Error('DEMO_USER_PASSWORD must be a non-default value of 14 to 1024 characters');
+  }
+  return { password };
+}
+
 async function seed() {
+  const { password } = destructiveResetSettings();
   const client = await pool.connect();
 
   try {
@@ -233,7 +248,7 @@ async function seed() {
 
     // Seed Users
     console.log('  Seeding users...');
-    const passwordHash = await bcrypt.hash('password123', 10);
+    const passwordHash = await bcrypt.hash(password, 12);
     await client.query(`
       INSERT INTO users (email, password_hash, full_name, role, department) VALUES
       ('admin@oracle-erp.com', $1, 'John Administrator', 'admin', 'Executive'),
@@ -536,7 +551,7 @@ async function seed() {
 
     console.log('  ✅ All data seeded successfully!');
     console.log('  📊 Summary (42 modules):');
-    console.log('     - 6 users (login: admin@oracle-erp.com / password123)');
+    console.log('     - 6 explicitly reset demo users (password not printed)');
     console.log('     - 18 finance transactions');
     console.log('     - 18 HR employees');
     console.log('     - 18 inventory items');
@@ -589,7 +604,11 @@ async function seed() {
   }
 }
 
-seed().catch(err => {
-  console.error('Failed to seed database:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  seed().catch(err => {
+    console.error(`Failed to reset demo database: ${err.message}`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { destructiveResetSettings, seed };

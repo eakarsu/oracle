@@ -1,176 +1,64 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-#==============================================================================
-# Oracle ERP - Application Startup Script
-#==============================================================================
+set -eu
 
-set -e
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PROJECT_DIR=${RUNTIME_PROJECT_SOURCE:-$SCRIPT_DIR}
+BACKEND_PID=''
+FRONTEND_PID=''
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-BOLD='\033[1m'
-
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-echo -e "${CYAN}${BOLD}"
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║                                                              ║"
-echo "║              🏢  ORACLE ERP SYSTEM v1.0                      ║"
-echo "║              Enterprise Resource Planning                    ║"
-echo "║                                                              ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
-echo -e "${NC}"
-
-# Load environment variables
-if [ -f "$PROJECT_DIR/.env" ]; then
-    export $(grep -v '^#' "$PROJECT_DIR/.env" | xargs)
-    echo -e "${GREEN}✓ Environment variables loaded${NC}"
-else
-    echo -e "${RED}✗ .env file not found! Please create one from .env.example${NC}"
-    exit 1
-fi
-
-BACKEND_PORT=${BACKEND_PORT:-3001}
-FRONTEND_PORT=${FRONTEND_PORT:-3000}
-
-#==============================================================================
-# Clean up used ports
-#==============================================================================
-echo -e "\n${YELLOW}▸ Cleaning up ports...${NC}"
-
-cleanup_port() {
-    local port=$1
-    local pids=$(lsof -ti :$port 2>/dev/null || true)
-    if [ -n "$pids" ]; then
-        echo -e "  ${YELLOW}Killing processes on port $port: $pids${NC}"
-        echo "$pids" | xargs kill -9 2>/dev/null || true
-        sleep 1
-    fi
-    echo -e "  ${GREEN}✓ Port $port is free${NC}"
+fail() {
+  printf '%s\n' "Startup refused: $*" >&2
+  exit 1
 }
 
-cleanup_port $BACKEND_PORT
-cleanup_port $FRONTEND_PORT
+[ -d "$PROJECT_DIR/backend/node_modules" ] || fail "backend dependencies are missing; run npm ci in backend"
+[ -x "$PROJECT_DIR/frontend/node_modules/.bin/vite" ] || fail "frontend dependencies are missing; run npm ci in frontend"
 
-#==============================================================================
-# Check dependencies
-#==============================================================================
-echo -e "\n${YELLOW}▸ Checking dependencies...${NC}"
+npm --prefix "$PROJECT_DIR/backend" run check:config
+RUNTIME_PORTS=$(node "$PROJECT_DIR/backend/scripts/runtime-ports.js")
+BACKEND_PORT=$(printf '%s\n' "$RUNTIME_PORTS" | sed -n '1p')
+FRONTEND_PORT=$(printf '%s\n' "$RUNTIME_PORTS" | sed -n '2p')
+export BACKEND_PORT FRONTEND_PORT
 
-if ! command -v node &> /dev/null; then
-    echo -e "${RED}✗ Node.js is not installed. Please install Node.js 18+${NC}"
-    exit 1
-fi
-echo -e "  ${GREEN}✓ Node.js $(node --version)${NC}"
-
-if ! command -v psql &> /dev/null; then
-    echo -e "${RED}✗ PostgreSQL client not found. Please install PostgreSQL${NC}"
-    exit 1
-fi
-echo -e "  ${GREEN}✓ PostgreSQL client found${NC}"
-
-#==============================================================================
-# Check PostgreSQL is running
-#==============================================================================
-echo -e "\n${YELLOW}▸ Checking PostgreSQL...${NC}"
-if pg_isready -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} > /dev/null 2>&1; then
-    echo -e "  ${GREEN}✓ PostgreSQL is running${NC}"
-else
-    echo -e "  ${YELLOW}Starting PostgreSQL...${NC}"
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        brew services start postgresql@14 2>/dev/null || brew services start postgresql 2>/dev/null || true
-    else
-        sudo systemctl start postgresql 2>/dev/null || true
-    fi
-    sleep 2
-    if pg_isready -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} > /dev/null 2>&1; then
-        echo -e "  ${GREEN}✓ PostgreSQL started${NC}"
-    else
-        echo -e "  ${RED}✗ Could not start PostgreSQL. Please start it manually.${NC}"
-        exit 1
-    fi
+[ "$BACKEND_PORT" != "$FRONTEND_PORT" ] || fail "backend and frontend ports must be distinct"
+export BACKEND_HOST=127.0.0.1
+if [ "${NODE_ENV:-production}" != production ]; then
+  export CORS_ORIGINS="${CORS_ORIGINS:-http://127.0.0.1:$FRONTEND_PORT}"
 fi
 
-#==============================================================================
-# Create database if not exists
-#==============================================================================
-echo -e "\n${YELLOW}▸ Setting up database...${NC}"
-psql -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} -U ${DB_USER:-postgres} -tc \
-    "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME:-oracle_erp}'" 2>/dev/null | grep -q 1 || \
-    psql -h ${DB_HOST:-localhost} -p ${DB_PORT:-5432} -U ${DB_USER:-postgres} -c \
-    "CREATE DATABASE ${DB_NAME:-oracle_erp}" 2>/dev/null
-echo -e "  ${GREEN}✓ Database '${DB_NAME:-oracle_erp}' ready${NC}"
+for port in "$BACKEND_PORT" "$FRONTEND_PORT"; do
+  case "$port" in
+    ''|*[!0-9]*) fail "ports must be numeric" ;;
+  esac
+  if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+    fail "ports must be between 1 and 65535"
+  fi
+  if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    fail "port $port is already in use; this launcher will not terminate another process"
+  fi
+done
 
-#==============================================================================
-# Install backend dependencies
-#==============================================================================
-echo -e "\n${YELLOW}▸ Installing backend dependencies...${NC}"
-cd "$PROJECT_DIR/backend"
-if [ ! -d "node_modules" ]; then
-    npm install --silent
-else
-    echo -e "  ${CYAN}Dependencies already installed, checking for updates...${NC}"
-    npm install --silent
-fi
-echo -e "  ${GREEN}✓ Backend dependencies installed${NC}"
+npm --prefix "$PROJECT_DIR/backend" run check:ready
 
-#==============================================================================
-# Install frontend dependencies
-#==============================================================================
-echo -e "\n${YELLOW}▸ Installing frontend dependencies...${NC}"
-cd "$PROJECT_DIR/frontend"
-if [ ! -d "node_modules" ]; then
-    npm install --silent
-else
-    echo -e "  ${CYAN}Dependencies already installed, checking for updates...${NC}"
-    npm install --silent
-fi
-echo -e "  ${GREEN}✓ Frontend dependencies installed${NC}"
-
-#==============================================================================
-# Seed database
-#==============================================================================
-echo -e "\n${YELLOW}▸ Seeding database with sample data...${NC}"
-cd "$PROJECT_DIR/backend"
-node seed/index.js
-echo -e "  ${GREEN}✓ Database seeded successfully${NC}"
-
-#==============================================================================
-# Start services with hot reload
-#==============================================================================
-echo -e "\n${BLUE}${BOLD}═══════════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}${BOLD}  Starting Oracle ERP System...${NC}"
-echo -e "${BLUE}${BOLD}═══════════════════════════════════════════════════════════════${NC}"
-echo ""
-echo -e "  ${CYAN}Backend:${NC}   http://localhost:${BACKEND_PORT}"
-echo -e "  ${CYAN}Frontend:${NC}  http://localhost:${FRONTEND_PORT}"
-echo ""
-echo -e "  ${YELLOW}Press Ctrl+C to stop all services${NC}"
-echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
-echo ""
-
-# Trap to clean up background processes
 cleanup() {
-    echo -e "\n${YELLOW}Shutting down Oracle ERP...${NC}"
-    kill $(jobs -p) 2>/dev/null || true
-    cleanup_port $BACKEND_PORT
-    cleanup_port $FRONTEND_PORT
-    echo -e "${GREEN}✓ Oracle ERP stopped${NC}"
-    exit 0
+  trap - INT TERM EXIT
+  [ -z "$BACKEND_PID" ] || kill "$BACKEND_PID" 2>/dev/null || true
+  [ -z "$FRONTEND_PID" ] || kill "$FRONTEND_PID" 2>/dev/null || true
+  [ -z "$BACKEND_PID" ] || wait "$BACKEND_PID" 2>/dev/null || true
+  [ -z "$FRONTEND_PID" ] || wait "$FRONTEND_PID" 2>/dev/null || true
 }
-trap cleanup SIGINT SIGTERM
+trap cleanup INT TERM EXIT
 
-# Start backend with nodemon for hot reload
-cd "$PROJECT_DIR/backend"
-npx nodemon --watch . --ext js,json --ignore node_modules server.js &
+printf '%s\n' "Starting bounded procurement API and UI on loopback only."
+npm --prefix "$PROJECT_DIR/backend" start &
+BACKEND_PID=$!
+BACKEND_PORT="$BACKEND_PORT" FRONTEND_PORT="$FRONTEND_PORT" \
+  npm --prefix "$PROJECT_DIR/frontend" run dev -- --host 127.0.0.1 --port "$FRONTEND_PORT" --strictPort &
+FRONTEND_PID=$!
 
-# Start frontend with hot reload (Vite has built-in HMR)
-cd "$PROJECT_DIR/frontend"
-BROWSER=none PORT=$FRONTEND_PORT npx vite --port $FRONTEND_PORT --host &
+while kill -0 "$BACKEND_PID" 2>/dev/null && kill -0 "$FRONTEND_PID" 2>/dev/null; do
+  sleep 1
+done
 
-# Wait for all background processes
-wait
+fail "a managed service exited; both services have been stopped"

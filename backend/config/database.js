@@ -1,17 +1,36 @@
 const { Pool } = require('pg');
-require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
+const { getConfig } = require('./environment');
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'oracle_erp',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
+function createPool(config = getConfig()) {
+  const pool = new Pool({
+    connectionString: config.databaseUrl,
+    ssl: config.databaseSsl ? { rejectUnauthorized: true } : false,
+    max: 10,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+  });
+
+  pool.on('error', (error) => {
+    console.error('Unexpected idle PostgreSQL client error', {
+      name: error.name,
+      code: error.code || 'unknown',
+    });
+  });
+  return pool;
+}
+
+let defaultPool;
+
+function getPool() {
+  if (!defaultPool) defaultPool = createPool();
+  return defaultPool;
+}
+
+module.exports = new Proxy({}, {
+  get(_target, property) {
+    if (property === 'createPool') return createPool;
+    if (property === 'getPool') return getPool;
+    const value = getPool()[property];
+    return typeof value === 'function' ? value.bind(getPool()) : value;
+  },
 });
-
-pool.on('error', (err) => {
-  console.error('Unexpected database error:', err);
-  process.exit(-1);
-});
-
-module.exports = pool;

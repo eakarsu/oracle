@@ -1,78 +1,169 @@
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const helmet = require('helmet');
+const { getConfig } = require('./config/environment');
+const { getPool } = require('./config/database');
+const { createAuthenticateToken } = require('./middleware/auth');
+const { createAuthRouter } = require('./routes/auth');
+const { createProcurementRouter } = require('./routes/procurement');
+const { migrationManifest } = require('./migrations/run');
 
-const app = express();
-const PORT = process.env.BACKEND_PORT || 3001;
+async function readiness(pool) {
+  const result = await pool.query(`
+    SELECT
+      to_regclass('public.procurement_schema_migrations') IS NOT NULL AS migrations,
+      to_regclass('public.users') IS NOT NULL AS users,
+      to_regclass('public.procurement_orders') IS NOT NULL AS orders,
+      to_regclass('public.procurement_events') IS NOT NULL AS events
+  `);
+  if (!Object.values(result.rows[0]).every(Boolean)) return false;
+  const expected = await migrationManifest();
+  const applied = await pool.query('SELECT name, checksum FROM procurement_schema_migrations ORDER BY name');
+  if (expected.length !== applied.rowCount) return false;
+  return expected.every((migration, index) => (
+    migration.name === applied.rows[index].name
+    && migration.checksum === applied.rows[index].checksum
+  ));
+}
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+function createApp({ pool = getPool(), config = getConfig(), disableRateLimit = false } = {}) {
+  const app = express();
+  if (config.trustProxy) app.set('trust proxy', 1);
+  app.disable('x-powered-by');
 
-// Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/finance', require('./routes/finance'));
-app.use('/api/hr', require('./routes/hr'));
-app.use('/api/inventory', require('./routes/inventory'));
-app.use('/api/crm', require('./routes/crm'));
-app.use('/api/sales', require('./routes/sales'));
-app.use('/api/procurement', require('./routes/procurement'));
-app.use('/api/projects', require('./routes/projects'));
-app.use('/api/analytics', require('./routes/analytics'));
-app.use('/api/ai', require('./routes/ai'));
-app.use('/api/assets', require('./routes/assets'));
-app.use('/api/supply-chain', require('./routes/supply-chain'));
-app.use('/api/compliance', require('./routes/compliance'));
-app.use('/api/general-ledger', require('./routes/general-ledger'));
-app.use('/api/accounts-payable', require('./routes/accounts-payable'));
-app.use('/api/accounts-receivable', require('./routes/accounts-receivable'));
-app.use('/api/payroll', require('./routes/payroll'));
-app.use('/api/recruitment', require('./routes/recruitment'));
-app.use('/api/training', require('./routes/training'));
-app.use('/api/budgets', require('./routes/budgets'));
-app.use('/api/quality', require('./routes/quality'));
-app.use('/api/manufacturing', require('./routes/manufacturing'));
-app.use('/api/helpdesk', require('./routes/helpdesk'));
-app.use('/api/contracts', require('./routes/contracts'));
-app.use('/api/expenses', require('./routes/expenses'));
-app.use('/api/timesheet', require('./routes/timesheet'));
-app.use('/api/documents', require('./routes/documents'));
-app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/vendors', require('./routes/vendors'));
-app.use('/api/tax', require('./routes/tax'));
-app.use('/api/cash-management', require('./routes/cash-management'));
-app.use('/api/fixed-assets', require('./routes/fixed-assets'));
-app.use('/api/benefits', require('./routes/benefits'));
-app.use('/api/leave-management', require('./routes/leave-management'));
-app.use('/api/performance-reviews', require('./routes/performance-reviews'));
-app.use('/api/marketing', require('./routes/marketing'));
-app.use('/api/work-orders', require('./routes/work-orders'));
-app.use('/api/warehouse', require('./routes/warehouse'));
-app.use('/api/returns', require('./routes/returns'));
-app.use('/api/pricing', require('./routes/pricing'));
-app.use('/api/risk-management', require('./routes/risk-management'));
-app.use('/api/audit-trail', require('./routes/audit-trail'));
-app.use('/api/user-management', require('./routes/user-management'));
-app.use('/api/knowledge-base', require('./routes/knowledge-base'));
-app.use('/api/shipping', require('./routes/shipping'));
-app.use('/api/ai-extras', require('./routes/ai-extras'));
-app.use('/api/order-to-cash-control', require('./routes/order-to-cash-control'));
+  app.use((req, res, next) => {
+    const startedAt = process.hrtime.bigint();
+    const supplied = req.get('x-request-id');
+    req.requestId = supplied && /^[A-Za-z0-9._:-]{1,100}$/.test(supplied)
+      ? supplied
+      : crypto.randomUUID();
+    res.set('x-request-id', req.requestId);
+    res.once('finish', () => {
+      const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+      console.log(JSON.stringify({
+        event: 'http_request',
+        requestId: req.requestId,
+        method: req.method,
+        path: req.originalUrl.split('?', 1)[0],
+        status: res.statusCode,
+        durationMs: Number(durationMs.toFixed(1)),
+      }));
+    });
+    next();
+  });
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        upgradeInsecureRequests: config.nodeEnv === 'production' ? [] : null,
+      },
+    },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+    hsts: config.nodeEnv === 'production' ? undefined : false,
+  }));
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin || config.corsOrigins.includes(origin)) return callback(null, true);
+      const error = new Error('Origin is not allowed');
+      error.status = 403;
+      return callback(error);
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id'],
+    credentials: true,
+    maxAge: 600,
+  }));
+  app.use(express.json({ limit: '64kb', strict: true }));
+  app.use('/api', (_req, res, next) => {
+    res.set('cache-control', 'no-store');
+    next();
+  });
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+  app.get('/api/health/live', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/api/health/ready', async (_req, res) => {
+    try {
+      const ready = await readiness(pool);
+      res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not_ready' });
+    } catch {
+      res.status(503).json({ status: 'not_ready' });
+    }
+  });
 
-// Custom Views (mounted before catch-all gap-features router / 404)
-app.use('/api/custom-views', require('./routes/customViews'));
+  app.use('/api/auth', createAuthRouter({ pool, config, disableRateLimit }));
+  app.use('/api/procurement', createAuthenticateToken({ pool, config }), createProcurementRouter({ pool }));
 
-app.use('/api', require('./routes/gap-features')); // === Batch 11 Gaps & Frontend Mounts ===
+  app.use('/api', (_req, res) => {
+    res.status(404).json({ error: 'Not found in the retained procurement boundary' });
+  });
 
-// 404 for unknown /api routes (must be after all mounts)
-app.use('/api', (req, res) => {
-  res.status(404).json({ error: 'Not Found', path: req.originalUrl });
-});
+  const frontendDirectory = path.join(__dirname, 'public');
+  if (fs.existsSync(path.join(frontendDirectory, 'index.html'))) {
+    app.use(express.static(frontendDirectory, { index: false, maxAge: config.nodeEnv === 'production' ? '1h' : 0 }));
+    app.get('/{*splat}', (_req, res) => res.sendFile(path.join(frontendDirectory, 'index.html')));
+  }
 
-app.listen(PORT, () => {
-  console.log(`\n  🚀 Oracle ERP Backend running on http://localhost:${PORT}\n`);
-});
+  app.use((error, req, res, _next) => {
+    const status = Number.isInteger(error.status) ? error.status
+      : error.type === 'entity.too.large' ? 413
+        : error.type === 'entity.parse.failed' ? 400
+          : error.code === '23505' ? 409
+            : 500;
+    if (status >= 500) {
+      console.error('Request failed', {
+        requestId: req.requestId,
+        method: req.method,
+        path: req.originalUrl.split('?', 1)[0],
+        name: error.name,
+        code: error.code || 'unknown',
+      });
+    }
+    const message = status >= 500
+      ? 'Internal server error'
+      : error.type === 'entity.too.large'
+        ? 'Request body is too large'
+        : error.type === 'entity.parse.failed'
+          ? 'Malformed JSON request body'
+          : error.code === '23505'
+            ? 'Request conflicts with an existing record'
+            : error.message;
+    res.status(status).json({ error: message, request_id: req.requestId });
+  });
+  return app;
+}
+
+async function startServer({ pool = getPool(), config = getConfig() } = {}) {
+  if (!(await readiness(pool))) {
+    throw new Error('Database is not ready; run npm run migrate before starting');
+  }
+  const app = createApp({ pool, config });
+  const server = await new Promise((resolve, reject) => {
+    const listener = app.listen(config.backendPort, config.backendHost, () => resolve(listener));
+    listener.once('error', reject);
+  });
+  console.log(`Procurement API listening on http://${config.backendHost}:${config.backendPort}`);
+  return server;
+}
+
+if (require.main === module) {
+  const pool = getPool();
+  startServer({ pool })
+    .then((server) => {
+      const shutdown = (signal) => {
+        console.log(`Received ${signal}; shutting down.`);
+        server.close(() => pool.end().finally(() => process.exit(0)));
+        setTimeout(() => process.exit(1), 10000).unref();
+      };
+      process.once('SIGTERM', () => shutdown('SIGTERM'));
+      process.once('SIGINT', () => shutdown('SIGINT'));
+    })
+    .catch((error) => {
+      console.error(`Startup failed: ${error.message}`);
+      pool.end().finally(() => { process.exitCode = 1; });
+    });
+}
+
+module.exports = { createApp, readiness, startServer };
