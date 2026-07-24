@@ -383,24 +383,24 @@ async function seed() {
     console.log('  Seeding procurement orders...');
     await client.query(`
       INSERT INTO procurement_orders (po_number, supplier_name, supplier_email, item_description, quantity, unit_cost, total_cost, status, delivery_date, payment_terms, order_date) VALUES
-      ('PO-2024-001', 'Dell Technologies', 'sales@dell.com', 'Dell XPS 15 Laptops for Engineering Team', 25, 1299.99, 32499.75, 'delivered', '2024-12-15', 'Net 30', '2024-11-15'),
-      ('PO-2024-002', 'Amazon Web Services', 'aws-sales@amazon.com', 'AWS Annual Enterprise Support Plan', 1, 150000, 150000, 'active', '2025-01-01', 'Annual', '2024-12-01'),
-      ('PO-2024-003', 'Herman Miller', 'orders@hermanmiller.com', 'Aeron Chairs for New Office', 50, 1395, 69750, 'in_transit', '2025-01-10', 'Net 45', '2024-12-05'),
+      ('PO-2024-001', 'Dell Technologies', 'sales@dell.com', 'Dell XPS 15 Laptops for Engineering Team', 25, 1299.99, 32499.75, 'approved', '2024-12-15', 'Net 30', '2024-11-15'),
+      ('PO-2024-002', 'Amazon Web Services', 'aws-sales@amazon.com', 'AWS Annual Enterprise Support Plan', 1, 150000, 150000, 'approved', '2025-01-01', 'Annual', '2024-12-01'),
+      ('PO-2024-003', 'Herman Miller', 'orders@hermanmiller.com', 'Aeron Chairs for New Office', 50, 1395, 69750, 'submitted', '2025-01-10', 'Net 45', '2024-12-05'),
       ('PO-2024-004', 'Cisco Systems', 'enterprise@cisco.com', 'Network Switches and Routers', 15, 3250, 48750, 'approved', '2025-01-15', 'Net 30', '2024-12-10'),
-      ('PO-2024-005', 'Samsung Electronics', 'b2b@samsung.com', '4K Monitors for All Departments', 100, 449.99, 44999, 'delivered', '2024-12-20', 'Net 30', '2024-11-20'),
-      ('PO-2024-006', 'Microsoft', 'licensing@microsoft.com', 'Microsoft 365 Enterprise Licenses', 500, 264, 132000, 'active', '2025-01-01', 'Annual', '2024-12-01'),
+      ('PO-2024-005', 'Samsung Electronics', 'b2b@samsung.com', '4K Monitors for All Departments', 100, 449.99, 44999, 'approved', '2024-12-20', 'Net 30', '2024-11-20'),
+      ('PO-2024-006', 'Microsoft', 'licensing@microsoft.com', 'Microsoft 365 Enterprise Licenses', 500, 264, 132000, 'approved', '2025-01-01', 'Annual', '2024-12-01'),
       ('PO-2024-007', 'Staples Business', 'corporate@staples.com', 'Office Supplies Q1 2025', 1, 15000, 15000, 'approved', '2025-01-05', 'Net 15', '2024-12-15'),
-      ('PO-2024-008', 'HP Enterprise', 'sales@hpe.com', 'ProLiant Servers for Data Center', 5, 4599.99, 22999.95, 'in_transit', '2025-01-20', 'Net 30', '2024-12-18'),
-      ('PO-2024-009', 'Jabra', 'business@jabra.com', 'Evolve2 85 Headsets for Remote Workers', 75, 249.99, 18749.25, 'delivered', '2024-12-22', 'Net 30', '2024-12-01'),
-      ('PO-2024-010', 'Adobe Inc', 'enterprise@adobe.com', 'Creative Cloud Enterprise Licenses', 50, 599.88, 29994, 'active', '2025-01-01', 'Annual', '2024-12-01'),
+      ('PO-2024-008', 'HP Enterprise', 'sales@hpe.com', 'ProLiant Servers for Data Center', 5, 4599.99, 22999.95, 'submitted', '2025-01-20', 'Net 30', '2024-12-18'),
+      ('PO-2024-009', 'Jabra', 'business@jabra.com', 'Evolve2 85 Headsets for Remote Workers', 75, 249.99, 18749.25, 'approved', '2024-12-22', 'Net 30', '2024-12-01'),
+      ('PO-2024-010', 'Adobe Inc', 'enterprise@adobe.com', 'Creative Cloud Enterprise Licenses', 50, 599.88, 29994, 'approved', '2025-01-01', 'Annual', '2024-12-01'),
       ('PO-2024-011', 'FlexiSpot', 'b2b@flexispot.com', 'Standing Desks for Engineering', 30, 599.99, 17999.70, 'draft', '2025-02-01', 'Net 30', '2024-12-20'),
       ('PO-2024-012', 'Logitech Business', 'enterprise@logitech.com', 'Keyboards and Mice Bundle', 100, 199.98, 19998, 'approved', '2025-01-12', 'Net 30', '2024-12-22'),
-      ('PO-2024-013', 'APC by Schneider', 'sales@apc.com', 'UPS Systems for Server Room', 10, 649.99, 6499.90, 'in_transit', '2025-01-08', 'Net 30', '2024-12-10'),
-      ('PO-2024-014', 'Salesforce', 'sales@salesforce.com', 'CRM Enterprise License Renewal', 1, 96000, 96000, 'active', '2025-01-01', 'Annual', '2024-12-01'),
-      ('PO-2024-015', 'Slack Technologies', 'sales@slack.com', 'Slack Enterprise Grid - Annual', 1, 48000, 48000, 'active', '2025-01-01', 'Annual', '2024-12-01'),
+      ('PO-2024-013', 'APC by Schneider', 'sales@apc.com', 'UPS Systems for Server Room', 10, 649.99, 6499.90, 'submitted', '2025-01-08', 'Net 30', '2024-12-10'),
+      ('PO-2024-014', 'Salesforce', 'sales@salesforce.com', 'CRM Enterprise License Renewal', 1, 96000, 96000, 'approved', '2025-01-01', 'Annual', '2024-12-01'),
+      ('PO-2024-015', 'Slack Technologies', 'sales@slack.com', 'Slack Enterprise Grid - Annual', 1, 48000, 48000, 'approved', '2025-01-01', 'Annual', '2024-12-01'),
       ('PO-2024-016', 'WeWork', 'enterprise@wework.com', 'Satellite Office Space - Q1 2025', 1, 25000, 25000, 'approved', '2025-01-01', 'Monthly', '2024-12-15'),
-      ('PO-2024-017', 'Cloudflare', 'enterprise@cloudflare.com', 'Enterprise Security Plan', 1, 36000, 36000, 'active', '2025-01-01', 'Annual', '2024-12-01'),
-      ('PO-2024-018', 'Cable Matters', 'sales@cablematters.com', 'Cat6 Cables and Adapters Bulk', 500, 24.99, 12495, 'delivered', '2024-12-18', 'Net 15', '2024-12-05')
+      ('PO-2024-017', 'Cloudflare', 'enterprise@cloudflare.com', 'Enterprise Security Plan', 1, 36000, 36000, 'approved', '2025-01-01', 'Annual', '2024-12-01'),
+      ('PO-2024-018', 'Cable Matters', 'sales@cablematters.com', 'Cat6 Cables and Adapters Bulk', 500, 24.99, 12495, 'approved', '2024-12-18', 'Net 15', '2024-12-05')
     `);
 
     // Seed Projects (16 items)
