@@ -9,6 +9,7 @@ const { getPool } = require('./config/database');
 const { createAuthenticateToken } = require('./middleware/auth');
 const { createAuthRouter } = require('./routes/auth');
 const { createProcurementRouter } = require('./routes/procurement');
+const { createAiVerificationRouter } = require('./routes/ai-verification');
 const { migrationManifest } = require('./migrations/run');
 
 async function readiness(pool) {
@@ -94,7 +95,9 @@ function createApp({ pool = getPool(), config = getConfig(), disableRateLimit = 
   });
 
   app.use('/api/auth', createAuthRouter({ pool, config, disableRateLimit }));
-  app.use('/api/procurement', createAuthenticateToken({ pool, config }), createProcurementRouter({ pool }));
+  const authenticateToken = createAuthenticateToken({ pool, config });
+  app.use('/api/procurement', authenticateToken, createProcurementRouter({ pool }));
+  app.use('/api/ai', authenticateToken, createAiVerificationRouter({ pool }));
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Not found in the retained procurement boundary' });

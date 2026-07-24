@@ -15,6 +15,12 @@ fail() {
 [ -d "$PROJECT_DIR/backend/node_modules" ] || fail "backend dependencies are missing; run npm ci in backend"
 [ -x "$PROJECT_DIR/frontend/node_modules/.bin/vite" ] || fail "frontend dependencies are missing; run npm ci in frontend"
 
+if [ -f "$PROJECT_DIR/.env" ]; then
+  set -a
+  . "$PROJECT_DIR/.env"
+  set +a
+fi
+
 npm --prefix "$PROJECT_DIR/backend" run check:config
 RUNTIME_PORTS=$(node "$PROJECT_DIR/backend/scripts/runtime-ports.js")
 BACKEND_PORT=$(printf '%s\n' "$RUNTIME_PORTS" | sed -n '1p')
@@ -39,6 +45,8 @@ for port in "$BACKEND_PORT" "$FRONTEND_PORT"; do
   fi
 done
 
+node "$PROJECT_DIR/backend/migrations/run.js"
+node "$PROJECT_DIR/backend/scripts/provision-runtime-admin.js"
 npm --prefix "$PROJECT_DIR/backend" run check:ready
 
 cleanup() {
