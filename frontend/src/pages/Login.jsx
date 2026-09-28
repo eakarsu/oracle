@@ -70,7 +70,7 @@ export default function Login({ onLogin }) {
             Auto Fill Demo Credentials
           </button>
           <button type="submit" className="btn btn-primary login-submit" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
       </div>
